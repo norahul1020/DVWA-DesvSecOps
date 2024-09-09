@@ -64,7 +64,7 @@ jobs:
 
       - name: Set up OWASP ZAP
         run: |
-          docker pull owasp/zap2docker-stable
+          docker pull tuxmanplay/owasp-zap2docker
           docker run -u zap -v $(pwd):/zap/wrk/:rw -t owasp/zap2docker-stable zap-baseline.py -t http://localhost -r zap_report.html
 
       - name: Upload OWASP ZAP Report
