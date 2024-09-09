@@ -1,9 +1,9 @@
-name: DevSecOps Pipeline
+name: DevSecOps Pipeline for DVWA
 
 on:
   push:
     branches:
-      - APNA-DevSecOps
+      - main
 
 jobs:
   # Step 1: Static Code Analysis for Vulnerabilities
@@ -13,13 +13,15 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v2
 
-      - name: Install Node.js (if using Node)
-        uses: actions/setup-node@v2
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
         with:
-          node-version: '16.x'
+          php-version: '8.0'  # Choose the appropriate PHP version
 
       - name: Install Dependencies
-        run: npm install # or use `composer install` for PHP
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y php php-mysqli php-gd
 
       - name: Run SAST (Static Application Security Testing) with `semgrep`
         run: |
@@ -28,15 +30,15 @@ jobs:
 
       - name: Run Dependency Check (OWASP Dependency Check)
         run: |
-          docker run --rm -v $(pwd):/src owasp/dependency-check --scan /src --format ALL --project "My Project"
-      
+          docker run --rm -v $(pwd):/src owasp/dependency-check --scan /src --format ALL --project "DVWA"
+
       - name: Upload Dependency Report
         uses: actions/upload-artifact@v2
         with:
           name: dependency-report
           path: owasp-report.html
 
-  # Step 2: Build Application
+  # Step 2: Build Application (for PHP, building typically involves copying files to the correct directory)
   build:
     runs-on: ubuntu-latest
     needs: security_scan
@@ -44,8 +46,13 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v2
 
-      - name: Build Project
-        run: npm run build # or your project's build command (e.g., Maven, Gradle)
+      - name: Build DVWA (Set Up Web Server)
+        run: |
+          sudo apt-get install -y apache2
+          sudo apt-get install -y php libapache2-mod-php php-mysql
+          sudo cp -r * /var/www/html/
+          sudo service apache2 start
+          echo "DVWA is set up!"
 
   # Step 3: Dynamic Security Scanning (DAST) with OWASP ZAP
   dynamic_scan:
@@ -58,7 +65,7 @@ jobs:
       - name: Set up OWASP ZAP
         run: |
           docker pull owasp/zap2docker-stable
-          docker run -u zap -v $(pwd):/zap/wrk/:rw -t owasp/zap2docker-stable zap-baseline.py -t http://localhost:8080 -r zap_report.html
+          docker run -u zap -v $(pwd):/zap/wrk/:rw -t owasp/zap2docker-stable zap-baseline.py -t http://localhost -r zap_report.html
 
       - name: Upload OWASP ZAP Report
         uses: actions/upload-artifact@v2
@@ -75,16 +82,15 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Deploy to Staging
-        run: echo "Deploying to staging environment..." # Replace with actual deploy command
+        run: echo "Deploying DVWA to staging environment..." # Replace with actual deployment command if needed
 
   # Step 5: Security Alert to Slack
   slack_notification:
     runs-on: ubuntu-latest
     if: failure()
     steps:
-      - name: Notify on Slack about Pipeline Failure
-        uses: slackapi/slack-github-action@v1.20.0
-        with:
-          slack-bot-token: ${{ secrets.SLACK_BOT_TOKEN }}
-          channel-id: 'security-alerts'
-          text: '🚨 Security Scan Failed! Please check the reports.'
+      - name: Notify via Slack Webhook
+        run: |
+          curl -X POST -H 'Content-type: application/json' \
+          --data '{"text":"🚨 *Security Scan Failed in the DVWA Pipeline!* \nPlease check the reports for details. \n\n*Branch*: `main` \n*Repository*: `{{ github.repository }}` \n*Commit*: `{{ github.sha }}` \n*Link to Actions*: https://github.com/{{ github.repository }}/actions/runs/{{ github.run_id }}"}' \
+          ${{ secrets.SLACK_WEBHOOK_URL }}
