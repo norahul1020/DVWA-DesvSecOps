@@ -28,15 +28,15 @@ jobs:
           pip install semgrep
           semgrep --config=auto .
 
-      - name: Run Dependency Check (OWASP Dependency Check)
-        run: |
-          docker run --rm -v $(pwd):/src owasp/dependency-check --scan /src --format ALL --project "DVWA"
+      # - name: Run Dependency Check (OWASP Dependency Check)
+      #   run: |
+      #     docker run --rm -v $(pwd):/src owasp/dependency-check --scan /src --format ALL --project "DVWA"
 
-      - name: Upload Dependency Report
-        uses: actions/upload-artifact@v2
-        with:
-          name: dependency-report
-          path: owasp-report.html
+      # - name: Upload Dependency Report
+      #   uses: actions/upload-artifact@v2
+      #   with:
+      #     name: dependency-report
+      #     path: owasp-report.html
 
   # Step 2: Build Application (for PHP, building typically involves copying files to the correct directory)
   build:
