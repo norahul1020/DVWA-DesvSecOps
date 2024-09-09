@@ -16,12 +16,12 @@ jobs:
       - name: Set up PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.0'  # Choose the appropriate PHP version
+          php-version: '8.0'  # Adjust PHP version if necessary
 
       - name: Install Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y php php-mysqli php-gd
+          sudo apt-get install -y php php-mysql php-gd
 
       - name: Run SAST (Static Application Security Testing) with `semgrep`
         run: |
