@@ -1,0 +1,90 @@
+name: DevSecOps Pipeline
+
+on:
+  push:
+    branches:
+      - APNA-DevSecOps
+
+jobs:
+  # Step 1: Static Code Analysis for Vulnerabilities
+  security_scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v2
+
+      - name: Install Node.js (if using Node)
+        uses: actions/setup-node@v2
+        with:
+          node-version: '16.x'
+
+      - name: Install Dependencies
+        run: npm install # or use `composer install` for PHP
+
+      - name: Run SAST (Static Application Security Testing) with `semgrep`
+        run: |
+          pip install semgrep
+          semgrep --config=auto .
+
+      - name: Run Dependency Check (OWASP Dependency Check)
+        run: |
+          docker run --rm -v $(pwd):/src owasp/dependency-check --scan /src --format ALL --project "My Project"
+      
+      - name: Upload Dependency Report
+        uses: actions/upload-artifact@v2
+        with:
+          name: dependency-report
+          path: owasp-report.html
+
+  # Step 2: Build Application
+  build:
+    runs-on: ubuntu-latest
+    needs: security_scan
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v2
+
+      - name: Build Project
+        run: npm run build # or your project's build command (e.g., Maven, Gradle)
+
+  # Step 3: Dynamic Security Scanning (DAST) with OWASP ZAP
+  dynamic_scan:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v2
+
+      - name: Set up OWASP ZAP
+        run: |
+          docker pull owasp/zap2docker-stable
+          docker run -u zap -v $(pwd):/zap/wrk/:rw -t owasp/zap2docker-stable zap-baseline.py -t http://localhost:8080 -r zap_report.html
+
+      - name: Upload OWASP ZAP Report
+        uses: actions/upload-artifact@v2
+        with:
+          name: zap-report
+          path: zap_report.html
+
+  # Step 4: Deploy to Staging (Optional)
+  deploy_staging:
+    runs-on: ubuntu-latest
+    needs: dynamic_scan
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v2
+
+      - name: Deploy to Staging
+        run: echo "Deploying to staging environment..." # Replace with actual deploy command
+
+  # Step 5: Security Alert to Slack
+  slack_notification:
+    runs-on: ubuntu-latest
+    if: failure()
+    steps:
+      - name: Notify on Slack about Pipeline Failure
+        uses: slackapi/slack-github-action@v1.20.0
+        with:
+          slack-bot-token: ${{ secrets.SLACK_BOT_TOKEN }}
+          channel-id: 'security-alerts'
+          text: '🚨 Security Scan Failed! Please check the reports.'
