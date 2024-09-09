@@ -3,7 +3,7 @@ name: Simple DevSecOps Pipeline for DVWA
 on:
   push:
     branches:
-      - main
+      - APNA-DevSecOps
 
 jobs:
   # Step 1: Basic Security Scan
